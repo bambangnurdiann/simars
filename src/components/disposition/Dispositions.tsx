@@ -53,6 +53,25 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+const roleLabel = (role: string): string => {
+  const map: Record<string, string> = {
+    ADMIN: "Admin",
+    PIMPINAN: "Pimpinan / Ketua",
+    WAKIL_KETUA: "Wakil Ketua",
+    HAKIM: "Hakim",
+    PANITERA: "Panitera",
+    SEKRETARIS: "Sekretaris",
+    PANITERA_MUDA_PERMOHONAN: "Panitera Muda Permohonan",
+    PANITERA_MUDA_GUGATAN: "Panitera Muda Gugatan",
+    PANITERA_MUDA_HUKUM: "Panitera Muda Hukum",
+    KEPALA_SUB_PTIP: "Kepala Sub Bagian PTIP",
+    KEPALA_SUB_KEPEGAWAIAN: "Kepala Sub Bagian Kepegawaian",
+    KEPALA_SUB_UMUM: "Kepala Sub Bagian Umum & Keuangan",
+    STAFF: "Staff",
+  };
+  return map[role] ?? role;
+};
+
 export default function Dispositions() {
   const { token, user } = useAuth();
   const navigate = useNavigate();
@@ -67,7 +86,8 @@ export default function Dispositions() {
   const [forwardDeadline, setForwardDeadline] = useState("");
   const [forwardToUserId, setForwardToUserId] = useState("");
   const [forwardSubmitting, setForwardSubmitting] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [subordinates, setSubordinates] = useState<any[]>([]);
+  const [subordinatesLoading, setSubordinatesLoading] = useState(false);
 
   // State for action form dialog
   const [actionOpen, setActionOpen] = useState(false);
@@ -79,7 +99,6 @@ export default function Dispositions() {
 
   useEffect(() => {
     fetchDispositions();
-    fetchUsers();
   }, []);
 
   const fetchDispositions = async () => {
@@ -97,16 +116,19 @@ export default function Dispositions() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchSubordinates = async () => {
+    setSubordinatesLoading(true);
     try {
-      const res = await fetch("/api/users/list", {
+      const res = await fetch("/api/users/subordinates", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) return;
       const data = await res.json();
-      setUsers(Array.isArray(data) ? data : []);
+      setSubordinates(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
+    } finally {
+      setSubordinatesLoading(false);
     }
   };
 
@@ -115,6 +137,7 @@ export default function Dispositions() {
     setForwardInstruction("");
     setForwardDeadline("");
     setForwardToUserId("");
+    fetchSubordinates();
     setForwardOpen(true);
   };
 
@@ -143,7 +166,8 @@ export default function Dispositions() {
         fetchDispositions();
         toast.success("Disposisi berhasil diteruskan");
       } else {
-        toast.error("Gagal menyimpan data");
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.message || "Gagal menyimpan data");
       }
     } catch (err) {
       console.error(err);
@@ -175,7 +199,6 @@ export default function Dispositions() {
         );
     }
   };
-
   const openActionDialog = (disp: any, currentStatus: string) => {
     let nextStatus = "PROSES";
     if (currentStatus === "PROSES") nextStatus = "SELESAI";
@@ -292,7 +315,6 @@ export default function Dispositions() {
     printWindow.focus();
     printWindow.print();
   };
-
   const filteredDispositions = showCompleted
     ? dispositions.filter((d) => d.status === "SELESAI")
     : dispositions;
@@ -428,9 +450,7 @@ export default function Dispositions() {
                       locale: id,
                     })}
                   </div>
-                </div>
-
-                {/* Right Section: Instruction + Actions */}
+                </div>                {/* Right Section: Instruction + Actions */}
                 <div className="p-5 flex-1 flex flex-col justify-between">
                   {/* Deadline */}
                   {disp.deadline && (
@@ -591,7 +611,7 @@ export default function Dispositions() {
           <form onSubmit={handleForwardSubmit}>
             <DialogHeader>
               <DialogTitle className="text-lg font-semibold text-slate-900">Teruskan Disposisi</DialogTitle>
-              <DialogDescription className="text-sm text-slate-500">Teruskan disposisi ini kepada pejabat/staf lain</DialogDescription>
+              <DialogDescription className="text-sm text-slate-500">Teruskan disposisi ini kepada pejabat/staf di bawah Anda</DialogDescription>
             </DialogHeader>
             <div className="py-5 space-y-4">
               {forwardDisp && (
@@ -603,16 +623,27 @@ export default function Dispositions() {
               )}
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-slate-700">Tujukan Kepada</Label>
-                <Select value={forwardToUserId} onValueChange={setForwardToUserId}>
-                  <SelectTrigger className="h-9 rounded-md">
-                    <SelectValue placeholder="Pilih pejabat/staf..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {users.filter(u => u.id !== user?.id).map((u) => (
-                      <SelectItem key={u.id} value={u.id}>{u.name} ({u.role})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {subordinatesLoading ? (
+                  <div className="flex items-center gap-2 h-9 px-3 rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Memuat daftar penerima...
+                  </div>
+                ) : subordinates.length === 0 ? (
+                  <div className="flex items-center h-9 px-3 rounded-md border border-slate-200 bg-slate-50 text-sm text-slate-500">
+                    Tidak ada penerima tersedia
+                  </div>
+                ) : (
+                  <Select value={forwardToUserId} onValueChange={setForwardToUserId}>
+                    <SelectTrigger className="h-9 rounded-md">
+                      <SelectValue placeholder="Pilih pejabat/staf..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subordinates.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>{u.name} &mdash; {roleLabel(u.role)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-slate-700">Instruksi / Catatan</Label>
@@ -625,7 +656,7 @@ export default function Dispositions() {
             </div>
             <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setForwardOpen(false)} className="h-9 text-sm font-medium rounded-md">Batal</Button>
-              <Button disabled={forwardSubmitting || !forwardToUserId} type="submit" className="h-9 text-sm font-medium rounded-md">
+              <Button disabled={forwardSubmitting || !forwardToUserId || subordinates.length === 0} type="submit" className="h-9 text-sm font-medium rounded-md">
                 {forwardSubmitting && <Loader2 className="w-4 h-4 animate-spin mr-1.5" />}
                 Teruskan
               </Button>

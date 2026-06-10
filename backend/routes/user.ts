@@ -28,6 +28,32 @@ router.get("/list", authenticateToken, async (req, res) => {
   }
 });
 
+// GET /subordinates - MUST be before /:id route
+router.get("/subordinates", authenticateToken, async (req: any, res) => {
+  try {
+    const role = req.user!.role;
+    const userId = req.user!.id;
+
+    if (role === "ADMIN" || role === "PIMPINAN") {
+      // Return semua user aktif kecuali diri sendiri
+      const users = await prisma.user.findMany({
+        where: { isActive: true, id: { not: userId } },
+        select: { id: true, name: true, role: true, username: true }
+      });
+      return res.json(users);
+    } else {
+      // Return hanya bawahan langsung
+      const users = await prisma.user.findMany({
+        where: { supervisorId: userId, isActive: true },
+        select: { id: true, name: true, role: true, username: true }
+      });
+      return res.json(users);
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.post("/", authenticateToken, checkRole(["ADMIN"]), async (req, res) => {
   const { username, password, name, role } = req.body;
   try {

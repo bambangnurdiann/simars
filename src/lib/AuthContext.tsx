@@ -5,7 +5,7 @@ interface User {
   id: string;
   username: string;
   name: string;
-  role: 'ADMIN' | 'PIMPINAN' | 'SEKRETARIS' | 'STAFF';
+  role: string;
   avatar?: string;
 }
 

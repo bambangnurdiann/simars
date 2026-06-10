@@ -34,13 +34,19 @@ interface NavItem {
   roles: string[];
 }
 
+const ALL_ROLES = [
+  "ADMIN", "PIMPINAN", "WAKIL_KETUA", "HAKIM", "PANITERA", "SEKRETARIS",
+  "PANITERA_MUDA_PERMOHONAN", "PANITERA_MUDA_GUGATAN", "PANITERA_MUDA_HUKUM",
+  "KEPALA_SUB_PTIP", "KEPALA_SUB_KEPEGAWAIAN", "KEPALA_SUB_UMUM", "STAFF",
+];
+
 const navItems: NavItem[] = [
-  { title: "Dashboard", href: "/", icon: LayoutDashboard, roles: ["ADMIN", "PIMPINAN", "SEKRETARIS", "STAFF"] },
-  { title: "Surat Masuk", href: "/surat-masuk", icon: MailOpen, roles: ["ADMIN", "PIMPINAN", "SEKRETARIS", "STAFF"] },
-  { title: "Surat Keluar", href: "/surat-keluar", icon: Send, roles: ["ADMIN", "SEKRETARIS", "STAFF"] },
-  { title: "Disposisi", href: "/disposisi", icon: GitPullRequest, roles: ["ADMIN", "PIMPINAN", "SEKRETARIS", "STAFF"] },
-  { title: "Arsip Digital", href: "/arsip", icon: Archive, roles: ["ADMIN", "PIMPINAN", "SEKRETARIS", "STAFF"] },
-  { title: "Laporan", href: "/laporan", icon: FileBarChart, roles: ["ADMIN", "PIMPINAN", "SEKRETARIS"] },
+  { title: "Dashboard", href: "/", icon: LayoutDashboard, roles: ALL_ROLES },
+  { title: "Surat Masuk", href: "/surat-masuk", icon: MailOpen, roles: ALL_ROLES },
+  { title: "Surat Keluar", href: "/surat-keluar", icon: Send, roles: ALL_ROLES },
+  { title: "Disposisi", href: "/disposisi", icon: GitPullRequest, roles: ALL_ROLES },
+  { title: "Arsip Digital", href: "/arsip", icon: Archive, roles: ALL_ROLES },
+  { title: "Laporan", href: "/laporan", icon: FileBarChart, roles: ["ADMIN", "PIMPINAN", "PANITERA", "SEKRETARIS", "PANITERA_MUDA_PERMOHONAN", "PANITERA_MUDA_GUGATAN", "PANITERA_MUDA_HUKUM", "KEPALA_SUB_PTIP", "KEPALA_SUB_KEPEGAWAIAN", "KEPALA_SUB_UMUM"] },
   { title: "Audit Log", href: "/audit", icon: ClipboardList, roles: ["ADMIN"] },
   { title: "Pengguna", href: "/users", icon: Users, roles: ["ADMIN"] },
   { title: "Pengaturan", href: "/pengaturan", icon: Settings, roles: ["ADMIN"] },

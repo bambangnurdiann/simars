@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../services/db";
-import { authenticateToken, checkRole, AuthRequest } from "../middleware/auth";
+import { authenticateToken, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
@@ -15,12 +15,20 @@ const dispositionSchema = z.object({
 
 router.get("/", authenticateToken, async (req: AuthRequest, res) => {
   try {
-    const where: any = {};
-    if (req.user!.role === "STAFF") {
-      where.toUserId = req.user!.id;
-    } else if (req.user!.role === "PIMPINAN") {
-      // Pimpinan sees what they sent
-      where.fromUserId = req.user!.id;
+    const role = req.user!.role;
+    const userId = req.user!.id;
+
+    let where: any = {};
+
+    if (role === "ADMIN") {
+      // Admin lihat semua
+      where = {};
+    } else if (role === "PIMPINAN") {
+      // Pimpinan lihat yang dia kirim ATAU terima
+      where = { OR: [{ fromUserId: userId }, { toUserId: userId }] };
+    } else {
+      // Semua role lain: lihat yang dikirim ke mereka ATAU yang mereka teruskan
+      where = { OR: [{ toUserId: userId }, { fromUserId: userId }] };
     }
 
     const dispositions = await prisma.disposition.findMany({
@@ -38,7 +46,7 @@ router.get("/", authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
-router.post("/", authenticateToken, checkRole(["PIMPINAN", "ADMIN"]), async (req: AuthRequest, res) => {
+router.post("/", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const parsed = dispositionSchema.safeParse(req.body);
 
@@ -47,6 +55,18 @@ router.post("/", authenticateToken, checkRole(["PIMPINAN", "ADMIN"]), async (req
     }
 
     const { toUserId, instruction, incomingLetterId, deadline, status } = parsed.data;
+
+    // Validasi hierarki: hanya ADMIN/PIMPINAN yang boleh ke siapa saja
+    const fromUser = await prisma.user.findUnique({ where: { id: req.user!.id } });
+    const toUser = await prisma.user.findUnique({ where: { id: toUserId } });
+
+    if (!fromUser || !toUser) {
+      return res.status(404).json({ message: "User tidak ditemukan" });
+    }
+
+    if (!["ADMIN", "PIMPINAN"].includes(fromUser.role) && toUser.supervisorId !== fromUser.id) {
+      return res.status(403).json({ message: "Anda tidak memiliki wewenang untuk disposisi ke pengguna ini" });
+    }
 
     const disposition = await prisma.disposition.create({
       data: {
@@ -115,7 +135,7 @@ router.patch("/:id/status", authenticateToken, async (req: AuthRequest, res) => 
       });
     }
 
-    // Notify the receiver when status changes to PROSES
+    // Notify the sender when status changes to PROSES
     if (status === "PROSES" && disposition.fromUserId) {
       await prisma.notification.create({
         data: {
